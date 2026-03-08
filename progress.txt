@@ -412,3 +412,45 @@ All tools are registered with MCP, have comprehensive Zod validation, error hand
 - Further documentation: Video tutorial or animated GIF (nice-to-have)
 
 **The 3-command prototype workflow is fully functional and ready for production use.**
+
+## 2026-03-08 13:15 - US-012
+- **What was implemented:**
+  - Implemented streaming progress updates for prototype generation (optional P2 feature)
+  - Added onProgress callback mechanism to PrototypeGenerationService.generatePrototype()
+  - Progress messages emitted at key stages:
+    - Initialization: "Generating prototype..."
+    - V0 API call: "Calling V0 API to generate X screens..."
+    - Request sending: "Sending request to V0..." or retry messages
+    - Success: "V0 API call successful, analyzing response..."
+    - Processing: "Processing generated prototype..."
+    - Completion: "Prototype generation complete: X of Y screens generated"
+  - Updated callV0WithRetry() to emit progress during API calls and retries
+  - Updated handleGeneratePrototype() in MCP tools to collect progress messages and include them in output
+  - Graceful degradation: when streaming=false (default) or onProgress not provided, no progress messages emitted
+  - Progress log appended to tool output when streaming is enabled
+
+- **Files changed:**
+  - `src/services/prototypeGenerationService.ts` - Added stream and onProgress parameters, progress emission at each stage
+  - `src/mcp/tools.ts` - Updated handleGeneratePrototype to collect progress and include in output
+  - `tests/unit/services/prototypeGenerationService.test.ts` - Added 6 comprehensive streaming tests
+  - `tests/unit/mcp/tools.test.ts` - Added 3 schema validation tests for streaming parameter
+  - `prd.json` - Marked US-012 as passes: true
+
+- **Test Results:**
+  - ✅ All 31 PrototypeGenerationService tests passing (6 new streaming tests)
+  - ✅ All 14 MCP tools tests passing (3 new streaming tests)
+  - ✅ Build passes (tsc)
+  - ⚠️ 15 pre-existing test failures remain (unrelated to this work)
+
+- **Learnings for future iterations:**
+  - **Pattern:** Optional callback pattern allows graceful degradation - stream parameter gates functionality, onProgress callback optional
+  - **Pattern:** Collect progress messages in array and include in final output (MCP doesn't have native streaming)
+  - **Pattern:** Progress messages should be user-friendly and actionable ("Calling V0 API to generate 3 screens..." not "API call initiated")
+  - **Pattern:** Include retry information in progress messages for transparency
+  - **Gotcha:** When testing callbacks, use jest.fn() to track calls, check progressMessages array content
+  - **Testing:** Test both enabled and disabled states, verify graceful handling when callback is undefined
+  - **Context:** US-012 was P2 (optional) but completed to provide better UX during long-running V0 generations
+  - **Architecture:** Service layer emits progress via callback, MCP layer collects and formats for user
+  - **Documentation:** Progress log in output helps users understand what happened during generation (especially for retries)
+---
+

@@ -177,8 +177,8 @@
       "Must gracefully degrade to non-streaming if not supported"
     ],
     "priority": "P2",
-    "passes": false,
-    "notes": "Optional for MVP."
+    "passes": true,
+    "notes": "Completed in commit 967e00c. Implemented onProgress callback mechanism with progress messages at each stage: initialization, V0 API call, retries, processing, and completion. Progress log included in tool output when streaming=true. Gracefully degrades when streaming=false (default) or callback not provided. 6 comprehensive tests added."
   },
   {
     "id": "US-013",
