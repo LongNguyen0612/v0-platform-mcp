@@ -192,8 +192,8 @@
       "Should summarize all generated screens and major components"
     ],
     "priority": "P0",
-    "passes": false,
-    "notes": ""
+    "passes": true,
+    "notes": "Completed in commit 486868e. HandoffService creates implementation briefs with summary, screens, components, ux_notes (navigation, flows, interactions), and implementation rules. Includes US-014 and US-015 functionality."
   },
   {
     "id": "US-014",
@@ -207,8 +207,8 @@
       "Must include in ux_notes section of implementation_brief"
     ],
     "priority": "P1",
-    "passes": false,
-    "notes": ""
+    "passes": true,
+    "notes": "Completed in commit 486868e. HandoffService.extractUxPatterns() identifies navigation patterns (web/mobile, admin, multi-level), screen flows (auth, CRUD, e-commerce), and interaction patterns (touch/mouse, forms, loading/error states)."
   },
   {
     "id": "US-015",
@@ -221,8 +221,8 @@
       "Should prevent Claude dev from redesigning prototyped UI"
     ],
     "priority": "P0",
-    "passes": false,
-    "notes": ""
+    "passes": true,
+    "notes": "Completed in commit 486868e. HandoffService.defineImplementationRules() provides comprehensive boundaries: preserve UI, implement backend/auth/validation/error handling, platform-specific rules (web: SEO/responsive, mobile: offline/native), testing, security, monitoring."
   },
   {
     "id": "US-016",
