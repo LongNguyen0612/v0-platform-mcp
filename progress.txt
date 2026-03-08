@@ -79,3 +79,37 @@
   - **Jest ESM:** Must use NODE_OPTIONS='--experimental-vm-modules' and jest.config.cjs (not .js) for ES modules
 
 ---
+## 2026-03-08 14:50 - US-006, US-007, US-008, US-009, US-010, US-011
+- **What was implemented:**
+  - Created generate_prototype tool for V0 API integration (step 2 of workflow)
+  - Implemented PrototypeGenerationService with comprehensive V0 API call logic
+  - US-006: Calls V0 Platform API with structured PrototypeContext, constructs prompt
+  - US-007: Enforces "no backend" constraints in CRITICAL CONSTRAINTS section of prompt
+  - US-008: Returns partial_success when not all screens detected in generated content
+  - US-009: Retry logic with exponential backoff [1s, 2s, 4s], max 3 retries
+    - Retries: 500, 502, 503, 429 (rate limit)
+    - Does NOT retry: 400, 401, 403 (client errors)
+  - US-010: Generates unique proto_<timestamp> IDs, includes preview_reference (V0 webUrl)
+  - US-011: Model selection with default v0-1.5-md, logs model in metadata
+  - Analyzes generated content to detect screens and extract component names
+
+- **Files changed:**
+  - `src/types/index.ts` - Added GeneratePrototypeSchema, PrototypeResultSchema
+  - `src/services/prototypeGenerationService.ts` - NEW service with V0 API integration
+  - `src/mcp/tools.ts` - Registered generate_prototype tool, added handler, instantiated prototypeService
+  - `tests/unit/services/prototypeGenerationService.test.ts` - NEW 25 comprehensive unit tests
+
+- **Test Results:**
+  - ✅ All 25 PrototypeGenerationService tests passing
+  - ✅ Build passes (tsc)
+  - ⚠️ Pre-existing test failures remain (ChatCompleteSchema, V0Service - unrelated)
+
+- **Learnings for future iterations:**
+  - **Pattern:** Service returns structured result types (PrototypeResult), not ToolResult - keeps service logic separate from MCP
+  - **Pattern:** Use isErrorRetryable() helper to check error messages for status codes when ErrorHandler doesn't detect them
+  - **Gotcha:** When testing retry logic, use mockResolvedValue (persistent) not mockResolvedValueOnce to avoid undefined responses after retries
+  - **Gotcha:** Rate limit errors (429) should be retried, not treated as client errors - check status code before rejecting
+  - **V0 API:** Constructs single V0 chat with comprehensive prompt including all screens - not multiple calls per screen
+  - **Prompt construction:** Use clear sections (Product, CRITICAL CONSTRAINTS, Screens, Design Style) for V0 to parse easily
+  - **Screen detection:** Use flexible pattern matching (lowercase, no spaces, hyphens, underscores) to detect screen names in generated content
+---

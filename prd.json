@@ -88,8 +88,8 @@
       "Must complete within 60 seconds or timeout gracefully"
     ],
     "priority": "P0",
-    "passes": false,
-    "notes": "Use single V0 call, not multiple calls."
+    "passes": true,
+    "notes": "Completed in commit d4bf613. PrototypeGenerationService.generatePrototype() handles V0 API calls with retry logic."
   },
   {
     "id": "US-007",
@@ -102,8 +102,8 @@
       "Should validate that generated code focuses on UI components"
     ],
     "priority": "P0",
-    "passes": false,
-    "notes": ""
+    "passes": true,
+    "notes": "Completed in commit d4bf613. PrototypeGenerationService.buildPrompt() includes explicit 'CRITICAL CONSTRAINTS' section enforcing no backend, no DB, no APIs."
   },
   {
     "id": "US-008",
@@ -117,8 +117,8 @@
       "Must allow continuation of workflow with partial results"
     ],
     "priority": "P1",
-    "passes": false,
-    "notes": ""
+    "passes": true,
+    "notes": "Completed in commit d4bf613. PrototypeGenerationService.analyzeGeneratedContent() detects screens, returns 'partial_success' when not all screens found."
   },
   {
     "id": "US-009",
@@ -133,8 +133,8 @@
       "Should use exponential backoff: 1s, 2s, 4s"
     ],
     "priority": "P0",
-    "passes": false,
-    "notes": ""
+    "passes": true,
+    "notes": "Completed in commit d4bf613. PrototypeGenerationService.callV0WithRetry() implements max 3 retries with exponential backoff [1s, 2s, 4s]. Retries 500/502/503/429, NOT 400/401/403."
   },
   {
     "id": "US-010",
@@ -148,8 +148,8 @@
       "Should include preview URL or reference if available from V0"
     ],
     "priority": "P0",
-    "passes": false,
-    "notes": ""
+    "passes": true,
+    "notes": "Completed in commit d4bf613. Returns PrototypeResult with proto_<timestamp> ID, screens_generated/requested counts, components array, preview_reference (V0 webUrl)."
   },
   {
     "id": "US-011",
@@ -162,8 +162,8 @@
       "Must document which model was used in prototype_result"
     ],
     "priority": "P2",
-    "passes": false,
-    "notes": "User override not needed for MVP."
+    "passes": true,
+    "notes": "Completed in commit d4bf613. Defaults to config.v0.defaultModel (v0-1.5-md), accepts optional model param, logs in metadata.model."
   },
   {
     "id": "US-012",
