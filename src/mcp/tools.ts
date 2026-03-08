@@ -498,13 +498,32 @@ export class V0Tools {
   /**
    * Handle generate_prototype tool call (US-006, US-007, US-009, US-010, US-011)
    */
+  /**
+   * Handle generate_prototype tool call (US-006, US-012)
+   */
   private async handleGeneratePrototype(arguments_: unknown) {
     const input = GeneratePrototypeSchema.parse(arguments_) as GeneratePrototypeInput;
+
+    // Collect progress messages if streaming is enabled (US-012)
+    const progressMessages: string[] = [];
+    const onProgress = input.stream
+      ? (message: string) => {
+          progressMessages.push(message);
+          logger.info('Prototype generation progress', { message });
+        }
+      : undefined;
+
     const result = await this.prototypeService.generatePrototype(
       input.prototype_context,
       input.model,
-      input.stream
+      input.stream,
+      onProgress
     );
+
+    // Build progress log if streaming was enabled (US-012)
+    const progressLog = input.stream && progressMessages.length > 0
+      ? `\n\n**Progress Log**:\n${progressMessages.map((msg, i) => `${i + 1}. ${msg}`).join('\n')}\n`
+      : '';
 
     if (result.status === 'generation_failed') {
       const retryInfo = result.retryable
@@ -516,7 +535,7 @@ export class V0Tools {
       return {
         content: [{
           type: 'text',
-          text: `❌ Prototype Generation Failed\n\n**Prototype ID**: ${result.prototype_id}\n**Error**: ${result.error}${retryInfo}`,
+          text: `❌ Prototype Generation Failed\n\n**Prototype ID**: ${result.prototype_id}\n**Error**: ${result.error}${retryInfo}${progressLog}`,
         }],
       };
     }
@@ -525,7 +544,7 @@ export class V0Tools {
       return {
         content: [{
           type: 'text',
-          text: `⚠️ Partial Prototype Generated\n\n**Prototype ID**: ${result.prototype_id}\n**Screens Requested**: ${result.screens_requested}\n**Screens Generated**: ${result.screens_generated}\n\n**Generated Screens**:\n${result.generated_screens?.map(s => `  - ${s}`).join('\n')}\n\n**Components** (${result.components?.length || 0}):\n${result.components?.slice(0, 10).join(', ')}${(result.components?.length || 0) > 10 ? '...' : ''}\n\n**Preview**: ${result.preview_reference || 'N/A'}\n\nSome screens could not be generated. You can regenerate missing screens or proceed with the partial prototype.`,
+          text: `⚠️ Partial Prototype Generated\n\n**Prototype ID**: ${result.prototype_id}\n**Screens Requested**: ${result.screens_requested}\n**Screens Generated**: ${result.screens_generated}\n\n**Generated Screens**:\n${result.generated_screens?.map(s => `  - ${s}`).join('\n')}\n\n**Components** (${result.components?.length || 0}):\n${result.components?.slice(0, 10).join(', ')}${(result.components?.length || 0) > 10 ? '...' : ''}\n\n**Preview**: ${result.preview_reference || 'N/A'}${progressLog}\n\nSome screens could not be generated. You can regenerate missing screens or proceed with the partial prototype.`,
         }],
       };
     }
@@ -534,7 +553,7 @@ export class V0Tools {
     return {
       content: [{
         type: 'text',
-        text: `✅ Prototype Generated Successfully\n\n**Prototype ID**: ${result.prototype_id}\n**Platform**: ${input.prototype_context.platform}\n**Screens Generated**: ${result.screens_generated}/${result.screens_requested}\n\n**Generated Screens**:\n${result.generated_screens?.map(s => `  - ${s}`).join('\n')}\n\n**Components** (${result.components?.length || 0}):\n${result.components?.slice(0, 10).join(', ')}${(result.components?.length || 0) > 10 ? '...' : ''}\n\n**Preview**: ${result.preview_reference || 'N/A'}\n**Model**: ${result.metadata?.model}\n**Duration**: ${result.metadata?.duration ? `${(result.metadata.duration / 1000).toFixed(2)}s` : 'N/A'}\n\nNext: Use handoff_to_claude_dev to convert this prototype into an implementation brief for development.`,
+        text: `✅ Prototype Generated Successfully\n\n**Prototype ID**: ${result.prototype_id}\n**Platform**: ${input.prototype_context.platform}\n**Screens Generated**: ${result.screens_generated}/${result.screens_requested}\n\n**Generated Screens**:\n${result.generated_screens?.map(s => `  - ${s}`).join('\n')}\n\n**Components** (${result.components?.length || 0}):\n${result.components?.slice(0, 10).join(', ')}${(result.components?.length || 0) > 10 ? '...' : ''}\n\n**Preview**: ${result.preview_reference || 'N/A'}\n**Model**: ${result.metadata?.model}\n**Duration**: ${result.metadata?.duration ? `${(result.metadata.duration / 1000).toFixed(2)}s` : 'N/A'}${progressLog}\n\nNext: Use handoff_to_claude_dev to convert this prototype into an implementation brief for development.`,
       }],
     };
   }

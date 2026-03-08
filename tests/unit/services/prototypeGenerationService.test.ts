@@ -529,4 +529,183 @@ describe('PrototypeGenerationService', () => {
       expect(requestBody.message).toContain('https://example.com/design.png');
     });
   });
+
+  describe('Streaming Progress Updates (US-012)', () => {
+    it('should NOT emit progress messages when streaming is disabled', async () => {
+      const mockResponse = {
+        id: 'chat_no_stream',
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Generated Dashboard and Task List screens',
+          },
+        ],
+        webUrl: 'https://v0.dev/chat/chat_no_stream',
+      };
+
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const onProgress = jest.fn();
+      await service.generatePrototype(validContext, 'v0-1.5-md', false, onProgress);
+
+      // Should NOT call onProgress when streaming is disabled
+      expect(onProgress).not.toHaveBeenCalled();
+    });
+
+    it('should emit progress messages when streaming is enabled', async () => {
+      const mockResponse = {
+        id: 'chat_stream',
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Generated Dashboard, Task List, and Settings screens',
+          },
+        ],
+        webUrl: 'https://v0.dev/chat/chat_stream',
+      };
+
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const progressMessages: string[] = [];
+      const onProgress = (message: string) => {
+        progressMessages.push(message);
+      };
+
+      await service.generatePrototype(validContext, 'v0-1.5-md', true, onProgress);
+
+      // Should emit progress messages
+      expect(progressMessages.length).toBeGreaterThan(0);
+      expect(progressMessages.some(msg => msg.includes('Generating prototype'))).toBe(true);
+      expect(progressMessages.some(msg => msg.includes('Calling V0 API'))).toBe(true);
+      expect(progressMessages.some(msg => msg.includes('V0 API call successful'))).toBe(true);
+      expect(progressMessages.some(msg => msg.includes('Prototype generation complete'))).toBe(true);
+    });
+
+    it('should include retry progress messages when V0 API fails temporarily', async () => {
+      const mockErrorResponse = {
+        ok: false,
+        status: 503,
+        text: async () => 'Service Unavailable',
+      };
+
+      const mockSuccessResponse = {
+        id: 'chat_retry',
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Generated screens after retry',
+          },
+        ],
+        webUrl: 'https://v0.dev/chat/chat_retry',
+      };
+
+      (global.fetch as jest.MockedFunction<typeof fetch>)
+        .mockResolvedValueOnce(mockErrorResponse as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockSuccessResponse,
+        } as Response);
+
+      const progressMessages: string[] = [];
+      const onProgress = (message: string) => {
+        progressMessages.push(message);
+      };
+
+      await service.generatePrototype(validContext, 'v0-1.5-md', true, onProgress);
+
+      // Should include retry messages
+      expect(progressMessages.some(msg => msg.includes('Retrying V0 API call'))).toBe(true);
+      expect(progressMessages.some(msg => msg.includes('attempt 2'))).toBe(true);
+    });
+
+    it('should include screen count in progress messages', async () => {
+      const mockResponse = {
+        id: 'chat_screens_count',
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Generated all screens',
+          },
+        ],
+        webUrl: 'https://v0.dev/chat/chat_screens_count',
+      };
+
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const progressMessages: string[] = [];
+      const onProgress = (message: string) => {
+        progressMessages.push(message);
+      };
+
+      await service.generatePrototype(validContext, 'v0-1.5-md', true, onProgress);
+
+      // Should include screen count in V0 API call message
+      expect(progressMessages.some(msg => msg.includes('3 screens'))).toBe(true);
+    });
+
+    it('should include completion message with generated screen count', async () => {
+      const mockResponse = {
+        id: 'chat_completion',
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Generated Dashboard and Task List screens',
+          },
+        ],
+        webUrl: 'https://v0.dev/chat/chat_completion',
+      };
+
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const progressMessages: string[] = [];
+      const onProgress = (message: string) => {
+        progressMessages.push(message);
+      };
+
+      await service.generatePrototype(validContext, 'v0-1.5-md', true, onProgress);
+
+      // Should include completion message with screen counts
+      const completionMessages = progressMessages.filter(msg => msg.includes('Prototype generation complete'));
+      expect(completionMessages.length).toBeGreaterThan(0);
+      expect(completionMessages[0]).toContain('of');
+      expect(completionMessages[0]).toContain('screens generated');
+    });
+
+    it('should gracefully handle when onProgress callback is not provided', async () => {
+      const mockResponse = {
+        id: 'chat_no_callback',
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Generated Dashboard, Task List, and Settings screens',
+          },
+        ],
+        webUrl: 'https://v0.dev/chat/chat_no_callback',
+      };
+
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      // Should not throw when streaming=true but onProgress is undefined
+      const result = await service.generatePrototype(validContext, 'v0-1.5-md', true, undefined);
+
+      // Should succeed without errors
+      expect(result.status).toBe('success');
+      expect(result.screens_generated).toBe(3);
+    });
+  });
 });

@@ -183,5 +183,33 @@ describe('V0Tools', () => {
         expect(result.content[0].text).toContain('Error:');
       });
     });
+
+    describe('Streaming Support - US-012', () => {
+      it('should accept stream parameter in generate_prototype schema', () => {
+        const tools = v0Tools.listTools();
+        const tool = tools.find(t => t.name === 'generate_prototype');
+
+        expect(tool?.inputSchema.properties?.stream).toBeDefined();
+        expect(tool?.inputSchema.properties?.stream).toEqual({
+          type: 'boolean',
+          default: false,
+          description: 'Whether to stream the response (shows generation progress)',
+        });
+      });
+
+      it('should have stream parameter with default value false', () => {
+        const tools = v0Tools.listTools();
+        const tool = tools.find(t => t.name === 'generate_prototype');
+
+        expect(tool?.inputSchema.properties?.stream?.default).toBe(false);
+      });
+
+      it('should not require stream parameter', () => {
+        const tools = v0Tools.listTools();
+        const tool = tools.find(t => t.name === 'generate_prototype');
+
+        expect(tool?.inputSchema.required).not.toContain('stream');
+      });
+    });
   });
 });

@@ -22,12 +22,15 @@ export class PrototypeGenerationService {
   }
 
   /**
-   * Generate multi-screen prototype from structured context (US-006)
+   * Generate multi-screen prototype from structured context (US-006, US-012)
+   *
+   * @param stream - If true, yields progress updates during generation (US-012)
    */
   async generatePrototype(
     prototypeContext: PrototypeContext,
     model: V0Model = config.v0.defaultModel,
-    _stream: boolean = false
+    stream: boolean = false,
+    onProgress?: (message: string) => void
   ): Promise<PrototypeResult> {
     const startTime = Date.now();
     const prototypeId = `proto_${Date.now()}`;
@@ -38,10 +41,21 @@ export class PrototypeGenerationService {
         model,
         platform: prototypeContext.platform,
         screensRequested: prototypeContext.screens.length,
+        streaming: stream,
       });
+
+      // Emit initial progress (US-012)
+      if (stream && onProgress) {
+        onProgress('Generating prototype...');
+      }
 
       // Construct V0 prompt with no-backend constraints (US-007)
       const prompt = this.buildPrompt(prototypeContext);
+
+      // Emit progress update (US-012)
+      if (stream && onProgress) {
+        onProgress(`Calling V0 API to generate ${prototypeContext.screens.length} screens...`);
+      }
 
       // Call V0 API with retry logic (US-009)
       const chatData = await this.callV0WithRetry('/chats', {
@@ -49,7 +63,12 @@ export class PrototypeGenerationService {
         body: JSON.stringify({
           message: prompt,
         }),
-      });
+      }, stream, onProgress);
+
+      // Emit processing progress (US-012)
+      if (stream && onProgress) {
+        onProgress('Processing generated prototype...');
+      }
 
       // Extract generated content
       const assistantMessage = chatData.messages?.find((msg: any) => msg.role === 'assistant');
@@ -61,6 +80,11 @@ export class PrototypeGenerationService {
 
       // Parse and analyze the generated content
       const analysis = this.analyzeGeneratedContent(assistantMessage.content, prototypeContext.screens);
+
+      // Emit completion progress (US-012)
+      if (stream && onProgress) {
+        onProgress(`Prototype generation complete: ${analysis.screensGenerated} of ${prototypeContext.screens.length} screens generated`);
+      }
 
       logger.info('Prototype generation completed', {
         prototypeId,
@@ -162,14 +186,22 @@ export class PrototypeGenerationService {
   }
 
   /**
-   * Call V0 API with retry logic (US-009)
+   * Call V0 API with retry logic (US-009, US-012)
    *
    * Retry strategy:
    * - Max 3 retries with exponential backoff (1s, 2s, 4s)
    * - Retry on: 500, 502, 503, network errors
    * - Do NOT retry on: 400, 401, 403 (client errors)
+   *
+   * @param stream - If true, emit progress updates during API calls
+   * @param onProgress - Callback for streaming progress messages
    */
-  private async callV0WithRetry(endpoint: string, options: RequestInit): Promise<any> {
+  private async callV0WithRetry(
+    endpoint: string,
+    options: RequestInit,
+    stream: boolean = false,
+    onProgress?: (message: string) => void
+  ): Promise<any> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -183,6 +215,15 @@ export class PrototypeGenerationService {
 
         logger.info('V0 API call attempt', { attempt: attempt + 1, maxRetries: this.maxRetries + 1 });
 
+        // Emit attempt progress (US-012)
+        if (stream && onProgress) {
+          if (attempt === 0) {
+            onProgress('Sending request to V0...');
+          } else {
+            onProgress(`Retrying V0 API call (attempt ${attempt + 1}/${this.maxRetries + 1})...`);
+          }
+        }
+
         const response = await fetch(url, {
           ...options,
           headers,
@@ -190,6 +231,10 @@ export class PrototypeGenerationService {
 
         // Success
         if (response.ok) {
+          // Emit success progress (US-012)
+          if (stream && onProgress) {
+            onProgress('V0 API call successful, analyzing response...');
+          }
           return await response.json();
         }
 
@@ -210,6 +255,12 @@ export class PrototypeGenerationService {
             attempt: attempt + 1,
             retryAfter: delay,
           });
+
+          // Emit retry progress (US-012)
+          if (stream && onProgress) {
+            onProgress(`V0 API returned error ${statusCode}, retrying in ${delay / 1000}s...`);
+          }
+
           await this.sleep(delay);
           lastError = new Error(`V0 API error (${statusCode}): ${errorText}`);
           continue;
@@ -226,6 +277,12 @@ export class PrototypeGenerationService {
             attempt: attempt + 1,
             retryAfter: delay,
           });
+
+          // Emit network error progress (US-012)
+          if (stream && onProgress) {
+            onProgress(`Network error occurred, retrying in ${delay / 1000}s...`);
+          }
+
           await this.sleep(delay);
           lastError = error as Error;
           continue;
