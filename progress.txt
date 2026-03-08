@@ -289,3 +289,40 @@ All tools are registered with MCP, have comprehensive Zod validation, error hand
   - **Gotcha:** Math.ceil(n/2) for threshold means even 1 occurrence meets threshold for 2 images - adjust expectations in tests
   - **Context:** layout_hints are optional and additive - they enhance context preparation but aren't required for validation
 ---
+## 2026-03-08 13:05 - US-019
+- **What was implemented:**
+  - Created end-to-end workflow tests for the 3-command prototype workflow
+  - 18 comprehensive test cases covering full workflow integration
+  - Test structure:
+    - Happy path tests for Step 1 (prepare_prototype_context) and Step 3 (handoff_to_claude_dev)
+    - Edge case tests: empty input, vague input, conflicting images, partial generation
+    - Validation failure tests: missing fields, malformed inputs
+    - Workflow integration tests: data flow preservation, platform-specific guidance
+    - Tool registration verification tests
+    - Error handling tests across workflow
+  - Uses mock data patterns to avoid real V0 API calls during testing
+  - All tests verify both service layer and MCP tool integration
+
+- **Files changed:**
+  - `tests/integration/workflow.test.ts` - NEW file with 480 lines, 18 test cases
+  - `prd.json` - Marked US-019 as passes: true
+
+- **Test Results:**
+  - ✅ All 18 new end-to-end workflow tests passing
+  - ✅ Build passes (tsc)
+  - ✅ Total test suite: 180 passing, 15 failing (pre-existing)
+  - ⚠️ Pre-existing test failures remain in types/index.test.ts and v0Service.test.ts (unrelated)
+
+- **Learnings for future iterations:**
+  - **Pattern:** Integration tests should use mock data to avoid external dependencies (V0 API)
+  - **Pattern:** Test both service layer (direct method calls) and MCP layer (tool calls) for complete coverage
+  - **Pattern:** HandoffService.createImplementationBrief() requires 3 params: prototypeId, prototypeResult, prototypeContext
+  - **Pattern:** MCP tool calls return { content: [{type: 'text', text: '...'}] } or { isError: true, content: [...] }
+  - **Pattern:** Successful MCP tool results don't have isError property - check with `expect(result.isError).not.toBe(true)`
+  - **Gotcha:** MCP tool handlers return formatted text output, not JSON - test against text content, not object properties
+  - **Gotcha:** Implementation rules use uppercase "PRESERVE" not lowercase "preserve"
+  - **Testing:** Use flexible expectations for text matching (e.g., toUpperCase(), toLowerCase(), toContain())
+  - **Testing:** Test platform-specific behavior by verifying rules contain platform keywords (mobile→offline, web→responsive)
+  - **Context:** US-019 completes the P1 testing work for the prototype workflow - all critical path tests now exist
+---
+
