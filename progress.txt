@@ -177,3 +177,29 @@
   - **Testing:** Test tool schemas comprehensively: properties, required fields, types, enums, descriptions
   - **Context:** The 3 prototype workflow tools are now fully registered and tested as part of the MCP server
 ---
+
+## 2026-03-08 20:20 - US-017, US-018
+- **What was implemented:**
+  - US-017: Zod schema validation - No new code needed
+  - US-018: Error handling - No new code needed
+  - Both stories were already completed as part of earlier implementations
+  - Verified all Zod schemas exist and are properly structured
+  - Verified error handling is implemented in V0Tools.callTool()
+
+- **Files changed:**
+  - `prd.json` - Marked US-017 and US-018 as passes: true
+
+- **Verification:**
+  - ✅ US-017: All Zod schemas defined in src/types/index.ts
+    - PreparePrototypeContextSchema, GeneratePrototypeSchema, HandoffToClaudeDevSchema
+    - Result schemas: PrototypeContextResultSchema, PrototypeResultSchema, ImplementationBriefSchema
+  - ✅ US-018: Error handling in src/mcp/tools.ts:341-359
+    - Uses ErrorHandler.handleError() and ErrorHandler.createUserMessage()
+    - Categorizes errors with V0McpError pattern
+    - Returns structured errors with isError flag, errorType, retryable flag
+
+- **Learnings for future iterations:**
+  - **Pattern:** When reviewing incomplete stories, check if they were already done as part of other stories
+  - **Context:** US-017 and US-018 were enablers that got implemented naturally as part of US-001, US-006, US-013, US-016
+  - **Gotcha:** Don't assume incomplete stories need new work - verify implementation first
+---
