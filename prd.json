@@ -1,0 +1,302 @@
+[
+  {
+    "id": "US-001",
+    "title": "Parse User Text into Prototype Context",
+    "description": "As a developer, I want to describe my product idea in natural language, so that the system can extract structured prototype requirements without me manually formatting them.\n\nThis is the foundation of the prepare_prototype_context tool, enabling intelligent extraction of product_name, goal, platform, and screens from unstructured text.",
+    "acceptanceCriteria": [
+      "Given a user provides product description text, When prepare_prototype_context is called, Then a structured prototype_context is returned with product_name, goal, and platform",
+      "Given the text mentions specific screens (e.g., 'dashboard', 'login page'), When context is prepared, Then those screens are extracted into the screens array",
+      "Given the text is vague or incomplete, When validation runs, Then a 'weak_input' status is returned with guidance on what's missing",
+      "Must complete parsing within 3 seconds",
+      "Must handle text inputs up to 5000 characters"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-002",
+    "title": "Infer Screens from Product Description",
+    "description": "As a developer, I want the system to suggest relevant screens based on my product description, so that I don't have to explicitly list every screen I need.\n\nImplements intelligent screen inference using workflow analysis and UI noun detection.",
+    "acceptanceCriteria": [
+      "Given a product description mentions 'booking system', When screen inference runs, Then screens like 'booking page', 'dashboard', 'admin panel' are suggested",
+      "Given a description mentions workflows like 'users manage appointments', When inference runs, Then appropriate screens are inferred from the workflow",
+      "Given no explicit screens are mentioned, When inference runs, Then 3-5 minimal screens are inferred based on product type",
+      "Should detect UI nouns: dashboard, login page, settings, profile, checkout",
+      "Must return at least 1 screen, maximum 10 screens"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-003",
+    "title": "Infer Platform from Product Description",
+    "description": "As a developer, I want the system to automatically detect whether I'm building for web or mobile, so that the prototype is optimized for the right platform.\n\nUses heuristics to determine platform: dashboard/SaaS → web, mobile app → mobile.",
+    "acceptanceCriteria": [
+      "Given text mentions 'dashboard' or 'admin panel', When platform inference runs, Then platform is set to 'web'",
+      "Given text mentions 'mobile app' or 'swipe navigation', When platform inference runs, Then platform is set to 'mobile'",
+      "Given platform cannot be determined, When inference runs, Then platform defaults to 'web' with a note about the assumption",
+      "Must detect keywords: dashboard, SaaS, admin → web; mobile app, iPhone, swipe → mobile",
+      "Should return confidence level (high/medium/low)"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-004",
+    "title": "Analyze Images for UI Layout Hints",
+    "description": "As a designer, I want to upload wireframes or design screenshots, so that the prototype matches my visual reference without manual description.\n\nImplements image analysis using Claude vision or V0 image API to extract layout structure and components.",
+    "acceptanceCriteria": [
+      "Given a user provides an image URL, When image analysis runs, Then layout structure is extracted (header, sidebar, main content, footer)",
+      "Given an image contains UI components, When analysis runs, Then major components are identified (buttons, forms, cards, tables)",
+      "Given multiple images are provided, When conflicts exist, Then common patterns are extracted and conflicts are noted",
+      "Should support PNG, JPG, WebP formats",
+      "Must handle images up to 10MB",
+      "Should detect layout hierarchy and component types"
+    ],
+    "priority": "P1",
+    "passes": false,
+    "notes": "Phase 1: Image files only. Figma support deferred."
+  },
+  {
+    "id": "US-005",
+    "title": "Validate Prototype Context Structure",
+    "description": "As a developer, I want the system to validate my prototype context, so that I know it's ready for prototype generation before calling V0.\n\nProvides moderate validation to catch empty data while remaining flexible.",
+    "acceptanceCriteria": [
+      "Given a prototype_context is created, When validation runs, Then required fields (product_name, platform, screens) are checked",
+      "Given required fields are missing, When validation runs, Then a validation error is returned with specific missing fields",
+      "Given the context is valid, When validation completes, Then status is 'valid' and the context is ready for generation",
+      "Must validate: product_name exists, platform is web/mobile, screens array not empty",
+      "Should provide helpful error messages for each validation failure"
+    ],
+    "priority": "P1",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-006",
+    "title": "Call V0 API with Prototype Context",
+    "description": "As a developer, I want the system to send my prototype context to V0, so that I get a multi-screen UI prototype generated automatically.\n\nCore V0 integration for generate_prototype tool.",
+    "acceptanceCriteria": [
+      "Given a valid prototype_context, When generate_prototype is called, Then a V0 API request is made with properly formatted prompt",
+      "Given the V0 call succeeds, When generation completes, Then prototype_result contains screens_generated and preview_reference",
+      "Given the V0 call fails, When error handling runs, Then a retryable error response is returned with retry_after info",
+      "Must construct prompt from context fields: product_name, screens, design_style, ui_reference",
+      "Should include 'no backend' constraints in V0 prompt",
+      "Must complete within 60 seconds or timeout gracefully"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": "Use single V0 call, not multiple calls."
+  },
+  {
+    "id": "US-007",
+    "title": "Enforce No Backend Constraints in V0 Prompt",
+    "description": "As a product owner, I want V0 to generate UI prototypes only, so that backend logic is reserved for Claude dev and not mixed into prototypes.\n\nCritical for maintaining clean separation between V0 (UI) and Claude (engineering).",
+    "acceptanceCriteria": [
+      "Given a prototype generation request, When the V0 prompt is constructed, Then explicit instructions are included: 'UI prototype only, no backend logic, no database schema, no APIs, no authentication'",
+      "Given V0 returns results, When validation runs, Then backend artifacts (if any) are ignored or flagged",
+      "Must include constraint instructions in every V0 prompt",
+      "Should validate that generated code focuses on UI components"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-008",
+    "title": "Handle Partial Prototype Generation",
+    "description": "As a developer, I want to receive partial prototypes if V0 cannot generate all screens, so that I can still use what was generated and request the rest separately.\n\nGraceful degradation for incomplete V0 generations.",
+    "acceptanceCriteria": [
+      "Given 5 screens are requested, When V0 generates only 3 screens, Then status is 'partial_success' with screens_requested: 5, screens_generated: 3",
+      "Given partial generation occurs, When the result is returned, Then the list of successfully generated screens is included",
+      "Given partial generation occurs, When the user reviews results, Then they can regenerate missing screens or accept the partial result",
+      "Should clearly indicate which screens were generated",
+      "Must allow continuation of workflow with partial results"
+    ],
+    "priority": "P1",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-009",
+    "title": "Implement Retry Logic for V0 API Failures",
+    "description": "As a developer, I want automatic retries when V0 API fails temporarily, so that I don't have to manually retry failed prototype generations.\n\nRetry strategy: max 3 retries, exponential backoff, handle rate limits.",
+    "acceptanceCriteria": [
+      "Given a V0 API call fails with status 500 or 503, When retry logic activates, Then up to 3 retry attempts are made with exponential backoff",
+      "Given all retries fail, When the final attempt fails, Then a 'generation_failed' error is returned with retryable: true",
+      "Given V0 returns rate limit error (429), When error handling runs, Then retry_after_seconds is included in the response",
+      "Must retry on: 500, 502, 503, network errors",
+      "Must NOT retry on: 400, 401, 403 (client errors)",
+      "Should use exponential backoff: 1s, 2s, 4s"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-010",
+    "title": "Generate Prototype Artifact with Preview Reference",
+    "description": "As a developer, I want to receive a prototype artifact with preview URL, so that I can quickly view and share the generated prototype.\n\nCreates structured prototype_result with proto_<timestamp> IDs.",
+    "acceptanceCriteria": [
+      "Given prototype generation succeeds, When the result is returned, Then a prototype_id is generated using format proto_<timestamp>",
+      "Given screens are generated, When the artifact is created, Then it includes: prototype_id, screens_generated array, components list, preview_reference",
+      "Given the artifact is created, When it's returned to the user, Then it can be referenced by handoff_to_claude_dev tool",
+      "Must generate unique prototype_id for each generation",
+      "Should include preview URL or reference if available from V0"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-011",
+    "title": "Handle V0 Model Selection",
+    "description": "As a developer, I want to use the recommended V0 model for prototype generation, so that I get consistent, high-quality results.\n\nUse default V0 model (v0-1.5-md or v0-1.5-lg).",
+    "acceptanceCriteria": [
+      "Given no model is specified, When generate_prototype runs, Then the default recommended V0 model is used",
+      "Given model selection logic runs, When the model is chosen, Then it's logged in prototype metadata for debugging",
+      "Should use latest stable V0 model by default",
+      "Must document which model was used in prototype_result"
+    ],
+    "priority": "P2",
+    "passes": false,
+    "notes": "User override not needed for MVP."
+  },
+  {
+    "id": "US-012",
+    "title": "Support Streaming Progress Updates",
+    "description": "As a developer, I want to see progress updates while V0 generates the prototype, so that I know the system is working and can estimate completion time.\n\nOptional streaming support for better UX.",
+    "acceptanceCriteria": [
+      "Given streaming is enabled, When V0 generation is in progress, Then progress messages are streamed: 'Generating prototype...', 'Processing screen 1 of 5...'",
+      "Given streaming completes, When the final result is ready, Then the complete prototype_result is returned",
+      "Given streaming is disabled, When generation runs, Then only the final result is returned without progress updates",
+      "Should support streaming if V0 API provides it",
+      "Must gracefully degrade to non-streaming if not supported"
+    ],
+    "priority": "P2",
+    "passes": false,
+    "notes": "Optional for MVP."
+  },
+  {
+    "id": "US-013",
+    "title": "Convert Prototype to Implementation Brief",
+    "description": "As a Claude dev agent, I want to receive a structured implementation brief from a prototype, so that I can build the production system without redesigning the UI.\n\nCore handoff_to_claude_dev functionality.",
+    "acceptanceCriteria": [
+      "Given a prototype_result exists, When handoff_to_claude_dev is called, Then an implementation_brief is returned with: summary, screens, components, ux_notes",
+      "Given the brief is generated, When Claude dev reads it, Then it clearly separates UI layout (preserve) from business logic (implement)",
+      "Given implementation rules are defined, When the brief is created, Then rules include: 'preserve visual layout', 'implement backend logic', 'add validation and error handling'",
+      "Must reference the original prototype_id",
+      "Should summarize all generated screens and major components"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-014",
+    "title": "Extract UX Patterns from Prototype",
+    "description": "As a Claude dev agent, I want to understand UX patterns in the prototype, so that I can implement interactions and workflows correctly.\n\nIdentifies navigation, flows, and interaction patterns.",
+    "acceptanceCriteria": [
+      "Given a prototype has navigation patterns, When UX extraction runs, Then patterns are documented: sidebar nav, tab navigation, modal dialogs, etc.",
+      "Given screen transitions exist, When extraction runs, Then flow relationships are documented: 'Dashboard → Settings', 'Login → Dashboard'",
+      "Given the brief includes ux_notes, When Claude dev reviews it, Then patterns are clear and actionable for implementation",
+      "Should identify: navigation style, screen flows, interaction patterns",
+      "Must include in ux_notes section of implementation_brief"
+    ],
+    "priority": "P1",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-015",
+    "title": "Define Implementation Boundaries",
+    "description": "As a Claude dev agent, I want clear boundaries between what to preserve and what to build, so that I don't waste time redesigning UI that's already been prototyped.\n\nCritical for V0/Claude separation principle.",
+    "acceptanceCriteria": [
+      "Given an implementation_brief is created, When implementation_rules are defined, Then they explicitly state: 'preserve visual layout', 'do not redesign unless necessary', 'implement backend and business logic', 'add validation, loading states, error handling'",
+      "Given the rules are included, When Claude dev reads them, Then the separation between V0's work and dev work is crystal clear",
+      "Must include in every implementation_brief",
+      "Should prevent Claude dev from redesigning prototyped UI"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "US-016",
+    "title": "Register 3 Tools with MCP Server",
+    "description": "As a developer, I want all 3 prototype workflow tools registered in the v0-mcp server, so that they appear in Claude Code's tool list and can be invoked.\n\nMCP integration enabler.",
+    "acceptanceCriteria": [
+      "Given the v0-mcp server starts, When tool registration runs, Then 3 new tools are registered: prepare_prototype_context, generate_prototype, handoff_to_claude_dev",
+      "Given tools are registered, When a user opens Claude Code, Then the 3 tools appear in the available tools list",
+      "Given a user invokes a tool, When the MCP server receives the request, Then the tool handler executes correctly",
+      "Must register all 3 tools with proper metadata and descriptions",
+      "Should follow existing v0-mcp tool registration patterns"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": "Follow patterns from existing 4 tools."
+  },
+  {
+    "id": "US-017",
+    "title": "Define Zod Schemas for Tool Parameters",
+    "description": "As a developer, I want Zod schemas to validate tool inputs, so that invalid data is caught early and doesn't cause runtime errors.\n\nType safety and validation enabler.",
+    "acceptanceCriteria": [
+      "Given a tool is called with parameters, When validation runs, Then Zod schema validates required vs optional fields",
+      "Given invalid data is provided, When validation fails, Then a clear validation error is returned with field-level details",
+      "Given valid data is provided, When validation passes, Then the tool executes normally",
+      "Must define schemas for: prototype_context, prototype_result, implementation_brief",
+      "Should validate data types, required fields, and constraints"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": "Follow existing v0-mcp Zod patterns."
+  },
+  {
+    "id": "US-018",
+    "title": "Implement Error Handling for All 3 Tools",
+    "description": "As a developer, I want consistent error handling across all 3 tools, so that I can debug issues and understand what went wrong.\n\nConsistent error responses with categorization.",
+    "acceptanceCriteria": [
+      "Given any tool encounters an error, When error handling runs, Then a structured error response is returned with: status, error_type, message, retryable flag",
+      "Given an error is retryable, When the user reviews it, Then they know they can try again immediately",
+      "Given an error is not retryable, When the user reviews it, Then they understand what needs to be fixed before retrying",
+      "Must categorize errors: validation_error, api_error, timeout_error, rate_limit_error",
+      "Should provide actionable error messages"
+    ],
+    "priority": "P0",
+    "passes": false,
+    "notes": "Follow existing v0-mcp error handler patterns."
+  },
+  {
+    "id": "US-019",
+    "title": "Write End-to-End Workflow Tests",
+    "description": "As a developer, I want end-to-end tests for the 3-command workflow, so that I can verify the full pipeline works correctly before deployment.\n\nTest suite for full workflow coverage.",
+    "acceptanceCriteria": [
+      "Given a test runs the full workflow, When all 3 commands execute, Then: prepare_prototype_context → generate_prototype → handoff_to_claude_dev completes successfully",
+      "Given tests run against edge cases, When edge cases are tested, Then: empty input, vague input, conflicting images, V0 failures are all handled correctly",
+      "Given tests complete, When results are reviewed, Then all critical paths pass and edge cases are handled gracefully",
+      "Must test: happy path, validation failures, partial generation, V0 errors",
+      "Should achieve >80% code coverage"
+    ],
+    "priority": "P1",
+    "passes": false,
+    "notes": "Follow existing v0-mcp test patterns (Jest)."
+  },
+  {
+    "id": "US-020",
+    "title": "Create Documentation and Examples",
+    "description": "As a new user, I want clear documentation and examples for the prototype workflow, so that I can start using it immediately without trial and error.\n\nUser-facing documentation and tutorials.",
+    "acceptanceCriteria": [
+      "Given documentation is published, When a user reads it, Then they understand: what each tool does, how to use the 3-command workflow, example inputs and outputs",
+      "Given examples are provided, When a user follows them, Then they can successfully generate their first prototype",
+      "Given troubleshooting guidance exists, When errors occur, Then users can diagnose and fix common issues independently",
+      "Must include: README with workflow overview, example prompts, expected outputs, troubleshooting guide",
+      "Should include: video tutorial or animated GIF showing the workflow"
+    ],
+    "priority": "P1",
+    "passes": false,
+    "notes": "Update existing README with prototype workflow section."
+  }
+]

@@ -6,6 +6,7 @@ import {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { V0Service } from '../services/v0Service.js';
+import { ContextPreparationService } from '../services/contextPreparationService.js';
 import {
   GenerateUISchema,
   GenerateFromImageSchema,
@@ -13,15 +14,19 @@ import {
   GenerateUIInput,
   GenerateFromImageInput,
   ChatCompleteInput,
+  PreparePrototypeContextSchema,
+  PreparePrototypeContextInput,
 } from '../types/index.js';
 import { logger, logToolCall } from '../utils/logger.js';
 import { ErrorHandler } from '../utils/errors.js';
 
 export class V0Tools {
   private v0Service: V0Service;
+  private contextService: ContextPreparationService;
 
   constructor() {
     this.v0Service = new V0Service();
+    this.contextService = new ContextPreparationService();
   }
 
   /**
@@ -130,6 +135,30 @@ export class V0Tools {
           required: [],
         },
       },
+      {
+        name: 'prepare_prototype_context',
+        description: 'Parse natural language product description into structured prototype context. Extracts product name, goal, platform (web/mobile), and infers required screens. This is the first step in the prototype workflow before calling generate_prototype.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            text: {
+              type: 'string',
+              description: 'Natural language description of your product idea (e.g., "Building a booking system called ReserveIt for users to schedule appointments. Needs a dashboard, booking page, and admin panel")',
+              minLength: 1,
+              maxLength: 5000,
+            },
+            images: {
+              type: 'array',
+              items: {
+                type: 'string',
+                format: 'uri',
+              },
+              description: 'Optional array of image URLs for visual references (wireframes, screenshots)',
+            },
+          },
+          required: ['text'],
+        },
+      },
     ];
   }
 
@@ -151,19 +180,23 @@ export class V0Tools {
         case 'v0_generate_ui':
           result = await this.handleGenerateUI(arguments_);
           break;
-        
+
         case 'v0_generate_from_image':
           result = await this.handleGenerateFromImage(arguments_);
           break;
-        
+
         case 'v0_chat_complete':
           result = await this.handleChatComplete(arguments_);
           break;
-        
+
         case 'v0_setup_check':
           result = await this.handleSetupCheck();
           break;
-        
+
+        case 'prepare_prototype_context':
+          result = await this.handlePreparePrototypeContext(arguments_);
+          break;
+
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -294,5 +327,39 @@ export class V0Tools {
         }],
       };
     }
+  }
+
+  /**
+   * Handle prepare_prototype_context tool call (US-001, US-002, US-003)
+   */
+  private async handlePreparePrototypeContext(arguments_: unknown) {
+    const input = PreparePrototypeContextSchema.parse(arguments_) as PreparePrototypeContextInput;
+    const result = await this.contextService.prepareContext(input.text, input.images);
+
+    if (result.status === 'validation_error') {
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Validation Error\n\n**Missing Fields**: ${result.missing_fields?.join(', ')}\n\n**Suggestions**:\n${result.suggestions?.map(s => `- ${s}`).join('\n')}\n\nPlease provide more details and try again.`,
+        }],
+      };
+    }
+
+    if (result.status === 'weak_input') {
+      return {
+        content: [{
+          type: 'text',
+          text: `⚠️ Prototype Context Prepared (Weak Input)\n\n**Product Name**: ${result.context?.product_name}\n**Platform**: ${result.context?.platform}\n**Goal**: ${result.context?.goal || 'Not specified'}\n**Screens**: ${result.context?.screens.join(', ')}\n\n**Confidence**: ${result.confidence}\n\n**Suggestions for Better Results**:\n${result.suggestions?.map(s => `- ${s}`).join('\n') || 'N/A'}\n\nYou can proceed with generate_prototype or provide more details for better results.`,
+        }],
+      };
+    }
+
+    // Valid context
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ Prototype Context Prepared\n\n**Product Name**: ${result.context?.product_name}\n**Platform**: ${result.context?.platform}\n**Goal**: ${result.context?.goal || 'Not specified'}\n**Screens** (${result.context?.screens.length}):\n${result.context?.screens.map(s => `  - ${s}`).join('\n')}\n\n**Confidence**: ${result.confidence}\n\nReady for generate_prototype! Use this context to generate your multi-screen prototype.`,
+      }],
+    };
   }
 }

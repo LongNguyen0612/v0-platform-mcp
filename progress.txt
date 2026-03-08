@@ -1,0 +1,50 @@
+# Ralph Progress Log - v0-mcp Prototype Workflow
+
+## Codebase Patterns
+- v0-mcp uses TypeScript 5.4+ with strict mode enabled (ES2022, NodeNext modules)
+- ES Modules throughout (type: "module" in package.json)
+- Zod schemas validate all MCP tool parameters (see src/types/index.ts)
+  - Pattern: Define schema → export type via z.infer
+  - Location: All schemas in src/types/index.ts
+- Error handling follows V0McpError pattern with categorization (see src/utils/errors.ts)
+  - Pattern: ErrorHandler.categorizeError() → returns ToolResult with metadata
+  - All errors include: errorType, statusCode, retryable flag
+- Winston logging for structured logs (see src/utils/logger.ts)
+  - Use logger.info/warn/error with metadata objects
+  - Helper: logToolCall(name, success, duration)
+- MCP tools registered in src/mcp/tools.ts via V0Tools class
+  - Pattern: listTools() returns Tool[] with JSON Schema
+  - Pattern: callTool(name, args) validates with Zod → calls service → returns result
+- Tests use Jest ^30.0.2 with ts-jest ^29.4.0 (see jest.config.js)
+  - Tests go in tests/unit/ mirroring src/ structure
+  - Run: npm test (must pass before commit)
+- Existing 4 tools: v0_generate_ui, v0_generate_from_image, v0_chat_complete, v0_setup_check
+- V0 service abstraction in src/services/v0Service.ts
+  - Pattern: Private request() method handles all V0 API calls
+  - Pattern: Service methods return Promise<ToolResult>
+  - Pattern: try/catch → this.handleError(error) for consistent error handling
+- V0 API uses Platform API (POST /chats endpoint)
+- Dependencies: @modelcontextprotocol/sdk ^0.5.0, openai ^4.47.1, zod ^3.22.4, winston ^3.17.0
+
+## Project Context
+- **Goal:** Implement 3-command prototype workflow
+- **Commands:** prepare_prototype_context → generate_prototype → handoff_to_claude_dev
+- **Core Principle:** V0 answers "What should UI look like?", Claude answers "How should system work?"
+- **Branch:** feature/prototype-workflow
+- **Total Stories:** 20 user stories (89 story points total)
+- **Sprint 1 Target:** 28 committed points, 3 stretch points
+
+## Sprint 1 Status
+- **Started:** 2026-03-08
+- **Goal:** Implement core context preparation and V0 generation
+- **Committed Stories:** US-001, US-002, US-003, US-006, US-007, US-016
+- **Stretch:** US-005
+- **Status:** Not started
+
+---
+
+## Story Implementation Log
+
+(Ralph will append progress here after each story completion)
+
+---

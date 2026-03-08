@@ -76,3 +76,34 @@ export interface AppConfig {
     level: 'debug' | 'info' | 'warn' | 'error';
   };
 }
+
+// Prototype Workflow Types (US-001+)
+export const PlatformSchema = z.enum(['web', 'mobile']);
+export type Platform = z.infer<typeof PlatformSchema>;
+
+export const PrototypeContextSchema = z.object({
+  product_name: z.string().min(1, 'Product name is required'),
+  goal: z.string().optional(),
+  platform: PlatformSchema,
+  screens: z.array(z.string()).min(1, 'At least one screen is required'),
+  design_style: z.string().optional(),
+  ui_reference: z.array(z.string().url()).optional(),
+  raw_input: z.string().optional(),
+});
+
+export const PreparePrototypeContextSchema = z.object({
+  text: z.string().min(1, 'Text input is required').max(5000, 'Text input must be less than 5000 characters'),
+  images: z.array(z.string().url()).optional(),
+});
+
+export const PrototypeContextResultSchema = z.object({
+  status: z.enum(['valid', 'weak_input', 'validation_error']),
+  context: PrototypeContextSchema.optional(),
+  suggestions: z.array(z.string()).optional(),
+  missing_fields: z.array(z.string()).optional(),
+  confidence: z.enum(['high', 'medium', 'low']).optional(),
+});
+
+export type PrototypeContext = z.infer<typeof PrototypeContextSchema>;
+export type PreparePrototypeContextInput = z.infer<typeof PreparePrototypeContextSchema>;
+export type PrototypeContextResult = z.infer<typeof PrototypeContextResultSchema>;
