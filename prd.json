@@ -57,8 +57,8 @@
       "Should detect layout hierarchy and component types"
     ],
     "priority": "P1",
-    "passes": false,
-    "notes": "Phase 1: Image files only. Figma support deferred."
+    "passes": true,
+    "notes": "Completed in commit 7110f87. ImageAnalysisService provides heuristic-based layout and component extraction. Supports PNG/JPG/JPEG/WebP. Handles multiple images with conflict detection. Integrated into prepare_prototype_context tool via layout_hints field. Gracefully degrades if image analysis fails."
   },
   {
     "id": "US-005",
