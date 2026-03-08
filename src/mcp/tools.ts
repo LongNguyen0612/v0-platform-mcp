@@ -7,6 +7,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { V0Service } from '../services/v0Service.js';
 import { ContextPreparationService } from '../services/contextPreparationService.js';
+import { PrototypeGenerationService } from '../services/prototypeGenerationService.js';
 import {
   GenerateUISchema,
   GenerateFromImageSchema,
@@ -16,6 +17,8 @@ import {
   ChatCompleteInput,
   PreparePrototypeContextSchema,
   PreparePrototypeContextInput,
+  GeneratePrototypeSchema,
+  GeneratePrototypeInput,
 } from '../types/index.js';
 import { logger, logToolCall } from '../utils/logger.js';
 import { ErrorHandler } from '../utils/errors.js';
@@ -23,10 +26,12 @@ import { ErrorHandler } from '../utils/errors.js';
 export class V0Tools {
   private v0Service: V0Service;
   private contextService: ContextPreparationService;
+  private prototypeService: PrototypeGenerationService;
 
   constructor() {
     this.v0Service = new V0Service();
     this.contextService = new ContextPreparationService();
+    this.prototypeService = new PrototypeGenerationService();
   }
 
   /**
@@ -159,6 +164,61 @@ export class V0Tools {
           required: ['text'],
         },
       },
+      {
+        name: 'generate_prototype',
+        description: 'Generate multi-screen UI prototype using V0 AI based on structured prototype context. Creates React components with TypeScript and Tailwind CSS. Returns prototype with preview URL and component list. This is step 2 in the prototype workflow (after prepare_prototype_context).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            prototype_context: {
+              type: 'object',
+              description: 'Structured prototype context from prepare_prototype_context tool',
+              properties: {
+                product_name: {
+                  type: 'string',
+                  description: 'Name of the product',
+                },
+                goal: {
+                  type: 'string',
+                  description: 'Product goal or purpose',
+                },
+                platform: {
+                  type: 'string',
+                  enum: ['web', 'mobile'],
+                  description: 'Target platform',
+                },
+                screens: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of screens to generate',
+                },
+                design_style: {
+                  type: 'string',
+                  description: 'Optional design style preferences',
+                },
+                ui_reference: {
+                  type: 'array',
+                  items: { type: 'string', format: 'uri' },
+                  description: 'Optional visual reference URLs',
+                },
+              },
+              required: ['product_name', 'platform', 'screens'],
+            },
+            model: {
+              type: 'string',
+              enum: ['v0-1.5-md', 'v0-1.5-lg', 'v0-1.0-md'],
+              default: 'v0-1.5-md',
+              description: 'V0 model to use for generation',
+            },
+            stream: {
+              type: 'boolean',
+              default: false,
+              description: 'Whether to stream the response (shows generation progress)',
+            },
+          },
+          required: ['prototype_context'],
+        },
+      },
     ];
   }
 
@@ -195,6 +255,10 @@ export class V0Tools {
 
         case 'prepare_prototype_context':
           result = await this.handlePreparePrototypeContext(arguments_);
+          break;
+
+        case 'generate_prototype':
+          result = await this.handleGeneratePrototype(arguments_);
           break;
 
         default:
@@ -359,6 +423,50 @@ export class V0Tools {
       content: [{
         type: 'text',
         text: `✅ Prototype Context Prepared\n\n**Product Name**: ${result.context?.product_name}\n**Platform**: ${result.context?.platform}\n**Goal**: ${result.context?.goal || 'Not specified'}\n**Screens** (${result.context?.screens.length}):\n${result.context?.screens.map(s => `  - ${s}`).join('\n')}\n\n**Confidence**: ${result.confidence}\n\nReady for generate_prototype! Use this context to generate your multi-screen prototype.`,
+      }],
+    };
+  }
+
+  /**
+   * Handle generate_prototype tool call (US-006, US-007, US-009, US-010, US-011)
+   */
+  private async handleGeneratePrototype(arguments_: unknown) {
+    const input = GeneratePrototypeSchema.parse(arguments_) as GeneratePrototypeInput;
+    const result = await this.prototypeService.generatePrototype(
+      input.prototype_context,
+      input.model,
+      input.stream
+    );
+
+    if (result.status === 'generation_failed') {
+      const retryInfo = result.retryable
+        ? result.retry_after_seconds
+          ? `\n\n⏱️ Rate limited. Retry after ${result.retry_after_seconds} seconds.`
+          : '\n\n🔄 This error is retryable. You can try again.'
+        : '\n\n❌ This error is not retryable. Please check your input and configuration.';
+
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Prototype Generation Failed\n\n**Prototype ID**: ${result.prototype_id}\n**Error**: ${result.error}${retryInfo}`,
+        }],
+      };
+    }
+
+    if (result.status === 'partial_success') {
+      return {
+        content: [{
+          type: 'text',
+          text: `⚠️ Partial Prototype Generated\n\n**Prototype ID**: ${result.prototype_id}\n**Screens Requested**: ${result.screens_requested}\n**Screens Generated**: ${result.screens_generated}\n\n**Generated Screens**:\n${result.generated_screens?.map(s => `  - ${s}`).join('\n')}\n\n**Components** (${result.components?.length || 0}):\n${result.components?.slice(0, 10).join(', ')}${(result.components?.length || 0) > 10 ? '...' : ''}\n\n**Preview**: ${result.preview_reference || 'N/A'}\n\nSome screens could not be generated. You can regenerate missing screens or proceed with the partial prototype.`,
+        }],
+      };
+    }
+
+    // Success
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ Prototype Generated Successfully\n\n**Prototype ID**: ${result.prototype_id}\n**Platform**: ${input.prototype_context.platform}\n**Screens Generated**: ${result.screens_generated}/${result.screens_requested}\n\n**Generated Screens**:\n${result.generated_screens?.map(s => `  - ${s}`).join('\n')}\n\n**Components** (${result.components?.length || 0}):\n${result.components?.slice(0, 10).join(', ')}${(result.components?.length || 0) > 10 ? '...' : ''}\n\n**Preview**: ${result.preview_reference || 'N/A'}\n**Model**: ${result.metadata?.model}\n**Duration**: ${result.metadata?.duration ? `${(result.metadata.duration / 1000).toFixed(2)}s` : 'N/A'}\n\nNext: Use handoff_to_claude_dev to convert this prototype into an implementation brief for development.`,
       }],
     };
   }

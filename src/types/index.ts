@@ -107,3 +107,31 @@ export const PrototypeContextResultSchema = z.object({
 export type PrototypeContext = z.infer<typeof PrototypeContextSchema>;
 export type PreparePrototypeContextInput = z.infer<typeof PreparePrototypeContextSchema>;
 export type PrototypeContextResult = z.infer<typeof PrototypeContextResultSchema>;
+
+// US-006, US-007: Generate Prototype Tool (V0 API Call)
+export const GeneratePrototypeSchema = z.object({
+  prototype_context: PrototypeContextSchema,
+  model: V0ModelSchema.optional().default('v0-1.5-md'),
+  stream: z.boolean().optional().default(false),
+});
+
+export const PrototypeResultSchema = z.object({
+  status: z.enum(['success', 'partial_success', 'generation_failed']),
+  prototype_id: z.string(),
+  screens_requested: z.number(),
+  screens_generated: z.number(),
+  generated_screens: z.array(z.string()).optional(),
+  components: z.array(z.string()).optional(),
+  preview_reference: z.string().optional(),
+  error: z.string().optional(),
+  retryable: z.boolean().optional(),
+  retry_after_seconds: z.number().optional(),
+  metadata: z.object({
+    model: z.string().optional(),
+    duration: z.number().optional(),
+    webUrl: z.string().optional(),
+  }).optional(),
+});
+
+export type GeneratePrototypeInput = z.infer<typeof GeneratePrototypeSchema>;
+export type PrototypeResult = z.infer<typeof PrototypeResultSchema>;
