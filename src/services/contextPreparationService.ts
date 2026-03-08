@@ -10,11 +10,19 @@ import {
   Platform,
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
+import { ImageAnalysisService } from './imageAnalysisService.js';
 
 export class ContextPreparationService {
+  private imageAnalysisService: ImageAnalysisService;
+
+  constructor() {
+    this.imageAnalysisService = new ImageAnalysisService();
+  }
+
   /**
    * Parse user text into structured prototype context
    * US-001: Extract product_name, goal, platform, screens
+   * US-004: Analyze images for layout hints
    */
   async prepareContext(text: string, images?: string[]): Promise<PrototypeContextResult> {
     const startTime = Date.now();
@@ -33,12 +41,35 @@ export class ContextPreparationService {
       // Infer screens (US-002)
       const screens = this.inferScreens(text, platformResult.platform);
 
+      // Analyze images for layout hints (US-004)
+      let layout_hints: PrototypeContext['layout_hints'];
+      if (images && images.length > 0) {
+        try {
+          const imageAnalysis = await this.imageAnalysisService.analyzeMultipleImages(images);
+          layout_hints = {
+            structure: imageAnalysis.structure,
+            components: imageAnalysis.components,
+            source: 'image_analysis',
+            conflicts: imageAnalysis.conflicts.length > 0 ? imageAnalysis.conflicts : undefined,
+          };
+          logger.info('Image analysis completed', {
+            imageCount: images.length,
+            structureCount: imageAnalysis.structure.length,
+            componentCount: imageAnalysis.components.length,
+          });
+        } catch (error) {
+          logger.warn('Image analysis failed, continuing without layout hints', { error });
+          // Don't fail the entire context preparation if image analysis fails
+        }
+      }
+
       // Validate completeness
       const validation = this.validateContext({
         product_name,
         goal,
         platform: platformResult.platform,
         screens,
+        layout_hints,
         raw_input: text,
       });
 

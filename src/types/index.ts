@@ -89,6 +89,12 @@ export const PrototypeContextSchema = z.object({
   design_style: z.string().optional(),
   ui_reference: z.array(z.string().url()).optional(),
   raw_input: z.string().optional(),
+  layout_hints: z.object({
+    structure: z.array(z.string()).optional(), // header, sidebar, main, footer
+    components: z.array(z.string()).optional(), // buttons, forms, cards, tables
+    source: z.enum(['image_analysis', 'inferred']).optional(),
+    conflicts: z.array(z.string()).optional(), // noted conflicts from multiple images
+  }).optional(),
 });
 
 export const PreparePrototypeContextSchema = z.object({

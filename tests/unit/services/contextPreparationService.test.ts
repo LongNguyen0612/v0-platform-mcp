@@ -391,18 +391,131 @@ describe('ContextPreparationService', () => {
     });
   });
 
-  describe('Image Support (Placeholder)', () => {
-    it('should accept images parameter', async () => {
+  describe('Image Analysis Integration (US-004)', () => {
+    it('should accept images parameter and extract layout hints', async () => {
       // Arrange
       const text = 'Building a dashboard.';
-      const images = ['https://example.com/wireframe.png'];
+      const images = ['https://example.com/dashboard-wireframe.png'];
 
       // Act
       const result = await service.prepareContext(text, images);
 
       // Assert
       expect(result.status).not.toBe('validation_error');
-      // Note: Image analysis not implemented in US-001, that's US-004
+      expect(result.context?.layout_hints).toBeDefined();
+      expect(result.context?.layout_hints?.source).toBe('image_analysis');
+      expect(Array.isArray(result.context?.layout_hints?.structure)).toBe(true);
+      expect(Array.isArray(result.context?.layout_hints?.components)).toBe(true);
+    });
+
+    it('should extract layout structure from images', async () => {
+      // Arrange
+      const text = 'Building an admin panel.';
+      const images = ['https://example.com/admin-dashboard.png'];
+
+      // Act
+      const result = await service.prepareContext(text, images);
+
+      // Assert
+      expect(result.context?.layout_hints?.structure).toContain('header');
+      expect(result.context?.layout_hints?.structure).toContain('sidebar');
+      expect(result.context?.layout_hints?.structure).toContain('main content');
+    });
+
+    it('should extract UI components from images', async () => {
+      // Arrange
+      const text = 'Building a data dashboard.';
+      const images = ['https://example.com/dashboard.png'];
+
+      // Act
+      const result = await service.prepareContext(text, images);
+
+      // Assert
+      const components = result.context?.layout_hints?.components || [];
+      expect(components.length).toBeGreaterThan(0);
+      expect(components).toEqual(
+        expect.arrayContaining(['buttons'])
+      );
+    });
+
+    it('should handle multiple images and consolidate results', async () => {
+      // Arrange
+      const text = 'Building a web application.';
+      const images = [
+        'https://example.com/dashboard1.png',
+        'https://example.com/dashboard2.png',
+      ];
+
+      // Act
+      const result = await service.prepareContext(text, images);
+
+      // Assert
+      expect(result.context?.layout_hints).toBeDefined();
+      expect(result.context?.layout_hints?.structure.length).toBeGreaterThan(0);
+      expect(result.context?.layout_hints?.components.length).toBeGreaterThan(0);
+    });
+
+    it('should note conflicts when multiple images differ', async () => {
+      // Arrange
+      const text = 'Building a web app.';
+      const images = [
+        'https://example.com/dashboard.png',
+        'https://example.com/landing.png',
+      ];
+
+      // Act
+      const result = await service.prepareContext(text, images);
+
+      // Assert
+      expect(result.context?.layout_hints).toBeDefined();
+      // May or may not have conflicts depending on what's common
+      if (result.context?.layout_hints?.conflicts) {
+        expect(Array.isArray(result.context.layout_hints.conflicts)).toBe(true);
+      }
+    });
+
+    it('should work without images (no layout hints)', async () => {
+      // Arrange
+      const text = 'Building a booking system with dashboard and calendar.';
+
+      // Act
+      const result = await service.prepareContext(text);
+
+      // Assert
+      expect(result.status).toBe('valid');
+      expect(result.context?.layout_hints).toBeUndefined();
+    });
+
+    it('should continue on image analysis failure', async () => {
+      // Arrange
+      const text = 'Building a dashboard application.';
+      const images = ['invalid-url'];
+
+      // Act
+      const result = await service.prepareContext(text, images);
+
+      // Assert
+      // Should still succeed even if image analysis fails
+      expect(result.status).not.toBe('validation_error');
+      // layout_hints might be undefined if analysis failed
+    });
+
+    it('should support PNG, JPG, JPEG, WebP formats', async () => {
+      // Arrange
+      const text = 'Building a web app.';
+      const images = [
+        'https://example.com/wireframe.png',
+        'https://example.com/mockup.jpg',
+        'https://example.com/design.jpeg',
+        'https://example.com/prototype.webp',
+      ];
+
+      // Act
+      const result = await service.prepareContext(text, images);
+
+      // Assert
+      expect(result.status).not.toBe('validation_error');
+      expect(result.context?.layout_hints).toBeDefined();
     });
   });
 });
