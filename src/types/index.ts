@@ -135,3 +135,31 @@ export const PrototypeResultSchema = z.object({
 
 export type GeneratePrototypeInput = z.infer<typeof GeneratePrototypeSchema>;
 export type PrototypeResult = z.infer<typeof PrototypeResultSchema>;
+
+// US-013: Handoff to Claude Dev Tool (Implementation Brief)
+export const HandoffToClaudeDevSchema = z.object({
+  prototype_id: z.string().min(1, 'Prototype ID is required'),
+  prototype_result: PrototypeResultSchema,
+  prototype_context: PrototypeContextSchema,
+});
+
+export const ImplementationBriefSchema = z.object({
+  prototype_id: z.string(),
+  summary: z.string(),
+  screens: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    components: z.array(z.string()),
+  })),
+  components: z.array(z.string()),
+  ux_notes: z.object({
+    navigation_patterns: z.array(z.string()),
+    screen_flows: z.array(z.string()),
+    interaction_patterns: z.array(z.string()),
+  }),
+  implementation_rules: z.array(z.string()),
+  preview_reference: z.string().optional(),
+});
+
+export type HandoffToClaudeDevInput = z.infer<typeof HandoffToClaudeDevSchema>;
+export type ImplementationBrief = z.infer<typeof ImplementationBriefSchema>;

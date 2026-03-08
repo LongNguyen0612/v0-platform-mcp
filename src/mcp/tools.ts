@@ -8,6 +8,7 @@ import {
 import { V0Service } from '../services/v0Service.js';
 import { ContextPreparationService } from '../services/contextPreparationService.js';
 import { PrototypeGenerationService } from '../services/prototypeGenerationService.js';
+import { HandoffService } from '../services/handoffService.js';
 import {
   GenerateUISchema,
   GenerateFromImageSchema,
@@ -19,6 +20,8 @@ import {
   PreparePrototypeContextInput,
   GeneratePrototypeSchema,
   GeneratePrototypeInput,
+  HandoffToClaudeDevSchema,
+  HandoffToClaudeDevInput,
 } from '../types/index.js';
 import { logger, logToolCall } from '../utils/logger.js';
 import { ErrorHandler } from '../utils/errors.js';
@@ -27,11 +30,13 @@ export class V0Tools {
   private v0Service: V0Service;
   private contextService: ContextPreparationService;
   private prototypeService: PrototypeGenerationService;
+  private handoffService: HandoffService;
 
   constructor() {
     this.v0Service = new V0Service();
     this.contextService = new ContextPreparationService();
     this.prototypeService = new PrototypeGenerationService();
+    this.handoffService = new HandoffService();
   }
 
   /**
@@ -219,6 +224,65 @@ export class V0Tools {
           required: ['prototype_context'],
         },
       },
+      {
+        name: 'handoff_to_claude_dev',
+        description: 'Convert a V0 prototype into a structured implementation brief for Claude dev agents. Extracts screens, components, UX patterns, and defines implementation boundaries. This is step 3 in the prototype workflow (after generate_prototype).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            prototype_id: {
+              type: 'string',
+              description: 'Unique prototype ID from generate_prototype (e.g., proto_1234567890)',
+            },
+            prototype_result: {
+              type: 'object',
+              description: 'Prototype result object from generate_prototype',
+              properties: {
+                status: {
+                  type: 'string',
+                  enum: ['success', 'partial_success', 'generation_failed'],
+                },
+                prototype_id: { type: 'string' },
+                screens_requested: { type: 'number' },
+                screens_generated: { type: 'number' },
+                generated_screens: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                components: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                preview_reference: { type: 'string' },
+              },
+              required: ['status', 'prototype_id', 'screens_requested', 'screens_generated'],
+            },
+            prototype_context: {
+              type: 'object',
+              description: 'Original prototype context from prepare_prototype_context',
+              properties: {
+                product_name: { type: 'string' },
+                goal: { type: 'string' },
+                platform: {
+                  type: 'string',
+                  enum: ['web', 'mobile'],
+                },
+                screens: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                design_style: { type: 'string' },
+                ui_reference: {
+                  type: 'array',
+                  items: { type: 'string', format: 'uri' },
+                },
+              },
+              required: ['product_name', 'platform', 'screens'],
+            },
+          },
+          required: ['prototype_id', 'prototype_result', 'prototype_context'],
+        },
+      },
     ];
   }
 
@@ -259,6 +323,10 @@ export class V0Tools {
 
         case 'generate_prototype':
           result = await this.handleGeneratePrototype(arguments_);
+          break;
+
+        case 'handoff_to_claude_dev':
+          result = await this.handleHandoffToClaudeDev(arguments_);
           break;
 
         default:
@@ -467,6 +535,52 @@ export class V0Tools {
       content: [{
         type: 'text',
         text: `✅ Prototype Generated Successfully\n\n**Prototype ID**: ${result.prototype_id}\n**Platform**: ${input.prototype_context.platform}\n**Screens Generated**: ${result.screens_generated}/${result.screens_requested}\n\n**Generated Screens**:\n${result.generated_screens?.map(s => `  - ${s}`).join('\n')}\n\n**Components** (${result.components?.length || 0}):\n${result.components?.slice(0, 10).join(', ')}${(result.components?.length || 0) > 10 ? '...' : ''}\n\n**Preview**: ${result.preview_reference || 'N/A'}\n**Model**: ${result.metadata?.model}\n**Duration**: ${result.metadata?.duration ? `${(result.metadata.duration / 1000).toFixed(2)}s` : 'N/A'}\n\nNext: Use handoff_to_claude_dev to convert this prototype into an implementation brief for development.`,
+      }],
+    };
+  }
+
+  /**
+   * Handle handoff_to_claude_dev tool call (US-013, US-014, US-015)
+   */
+  private async handleHandoffToClaudeDev(arguments_: unknown) {
+    const input = HandoffToClaudeDevSchema.parse(arguments_) as HandoffToClaudeDevInput;
+
+    const brief = await this.handoffService.createImplementationBrief(
+      input.prototype_id,
+      input.prototype_result,
+      input.prototype_context
+    );
+
+    // Format implementation brief for display
+    const screensSection = brief.screens
+      .map(screen => {
+        const componentsText = screen.components.length > 0
+          ? `\n    **Components**: ${screen.components.join(', ')}`
+          : '';
+        return `  **${screen.name}**\n    ${screen.description}${componentsText}`;
+      })
+      .join('\n\n');
+
+    const navPatternsText = brief.ux_notes.navigation_patterns
+      .map(p => `  - ${p}`)
+      .join('\n');
+
+    const screenFlowsText = brief.ux_notes.screen_flows.length > 0
+      ? brief.ux_notes.screen_flows.map(f => `  - ${f}`).join('\n')
+      : '  - No specific flows detected';
+
+    const interactionPatternsText = brief.ux_notes.interaction_patterns
+      .map(p => `  - ${p}`)
+      .join('\n');
+
+    const rulesText = brief.implementation_rules
+      .map(r => `  ${r}`)
+      .join('\n');
+
+    return {
+      content: [{
+        type: 'text',
+        text: `${brief.summary}\n\n## Screens\n\n${screensSection}\n\n## Components\n\n${brief.components.length > 0 ? brief.components.slice(0, 20).join(', ') : 'No components detected'}${brief.components.length > 20 ? '...' : ''}\n\n## UX Patterns\n\n### Navigation Patterns\n${navPatternsText}\n\n### Screen Flows\n${screenFlowsText}\n\n### Interaction Patterns\n${interactionPatternsText}\n\n## Implementation Rules\n\n${rulesText}\n\n${brief.preview_reference ? `## Preview Reference\n\n${brief.preview_reference}\n\n` : ''}---\n\n**Next Steps for Claude Dev Agent:**\n1. Review the implementation rules above\n2. Preserve the V0-generated UI components\n3. Implement backend logic, API integration, and data handling\n4. Add validation, loading states, and error handling\n5. Implement authentication and authorization if needed\n6. Add tests for business logic and critical flows`,
       }],
     };
   }
