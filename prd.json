@@ -236,8 +236,8 @@
       "Should follow existing v0-mcp tool registration patterns"
     ],
     "priority": "P0",
-    "passes": false,
-    "notes": "Follow patterns from existing 4 tools."
+    "passes": true,
+    "notes": "Completed in commit 1fbdc9f. All 3 tools registered in src/mcp/tools.ts with comprehensive input schemas. Added 11 test cases to verify registration."
   },
   {
     "id": "US-017",

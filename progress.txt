@@ -149,3 +149,31 @@
   - **3-command workflow complete:** prepare_prototype_context → generate_prototype → handoff_to_claude_dev
   - **Gotcha:** When implementing related stories (US-013, US-014, US-015), implement together as they share service logic
 ---
+
+## 2026-03-08 20:10 - US-016
+- **What was implemented:**
+  - Updated tests/unit/mcp/tools.test.ts to verify all 7 MCP tools are properly registered
+  - Added 11 comprehensive test cases covering:
+    - Tool count verification (7 total: 4 existing + 3 new prototype workflow tools)
+    - Input schema validation for all 3 new tools (prepare_prototype_context, generate_prototype, handoff_to_claude_dev)
+    - Detailed schema property checks (required fields, types, enums, constraints)
+    - Error handling for invalid inputs
+  - The 3 tools were already registered in src/mcp/tools.ts (lines 149-285) from previous commits
+  - US-016 focused on test coverage to verify registration quality
+
+- **Files changed:**
+  - `tests/unit/mcp/tools.test.ts` - Completely refactored to test 7 tools instead of 4
+  - `prd.json` - Marked US-016 as passes: true
+
+- **Test Results:**
+  - ✅ All 11 new MCP tools tests passing
+  - ✅ Build passes (tsc)
+  - ⚠️ Pre-existing lint errors remain in other files (unrelated to this work)
+
+- **Learnings for future iterations:**
+  - **Pattern:** MCP tool registration tests should focus on schema validation (not mocking services)
+  - **Pattern:** Use listTools() to verify tool count and metadata, callTool() with invalid inputs to verify error handling
+  - **Gotcha:** When testing MCP tools that call real services, avoid complex mocking - test registration and input validation instead
+  - **Testing:** Test tool schemas comprehensively: properties, required fields, types, enums, descriptions
+  - **Context:** The 3 prototype workflow tools are now fully registered and tested as part of the MCP server
+---
